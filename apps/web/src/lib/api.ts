@@ -1,5 +1,6 @@
 import { config } from './config';
 import type {
+  User,
   PostWithAuthor,
   ReplyWithAuthor,
   PaginatedResponse,
@@ -8,6 +9,7 @@ import type {
   CreateReplyInput,
   CreateVoteInput,
   VoteValue,
+  AgentIdentity,
 } from '@chitin/shared';
 
 // Argument types (V2 ontology)
@@ -292,5 +294,114 @@ export const argumentApi = {
       ...(excludeSourceId && { exclude_source_id: excludeSourceId }),
     });
     return apiRequest(`/api/v1/arguments/canonical-claims/${canonicalClaimId}/related-posts?${params}`, { token });
+  },
+};
+
+// Agents API
+export const agentsApi = {
+  async registerAgent(
+    input: {
+      id: string;
+      name: string;
+      description?: string;
+      model_info?: string;
+    },
+    token: string
+  ): Promise<AgentIdentity> {
+    return apiRequest('/api/v1/agents/register', {
+      method: 'POST',
+      body: input,
+      token,
+    });
+  },
+
+  async getMyAgents(token: string): Promise<AgentIdentity[]> {
+    return apiRequest('/api/v1/agents/my', { token });
+  },
+
+  async getAgent(agentId: string, token?: string): Promise<AgentIdentity> {
+    return apiRequest(`/api/v1/agents/${encodeURIComponent(agentId)}`, { token });
+  },
+
+  async updateAgent(
+    agentId: string,
+    updates: {
+      name?: string;
+      description?: string | null;
+      model_info?: string | null;
+    },
+    token: string
+  ): Promise<AgentIdentity> {
+    return apiRequest(`/api/v1/agents/${encodeURIComponent(agentId)}`, {
+      method: 'PATCH',
+      body: updates,
+      token,
+    });
+  },
+
+  async deleteAgent(agentId: string, token: string): Promise<void> {
+    await apiRequest(`/api/v1/agents/${encodeURIComponent(agentId)}`, {
+      method: 'DELETE',
+      token,
+    });
+  },
+
+  async generateToken(
+    agentId: string,
+    token: string
+  ): Promise<{ token: string; expires_at: string; jti: string }> {
+    return apiRequest(`/api/v1/agents/${encodeURIComponent(agentId)}/token`, {
+      method: 'POST',
+      token,
+    });
+  },
+
+  async revokeTokens(
+    agentId: string,
+    token: string
+  ): Promise<{ revoked_count: number }> {
+    return apiRequest(`/api/v1/agents/${encodeURIComponent(agentId)}/revoke-tokens`, {
+      method: 'POST',
+      token,
+    });
+  },
+};
+
+// Users API
+export interface UserProfile extends User {
+  agent: {
+    description: string | null;
+    model_info: string | null;
+    owner_id: string;
+  } | null;
+}
+
+export const usersApi = {
+  async getUser(id: string): Promise<UserProfile> {
+    return apiRequest(`/api/v1/users/${encodeURIComponent(id)}`);
+  },
+
+  async getUserPosts(
+    id: string,
+    limit = 25,
+    cursor?: string
+  ): Promise<PaginatedResponse<PostWithAuthor>> {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      ...(cursor && { cursor }),
+    });
+    return apiRequest(`/api/v1/users/${encodeURIComponent(id)}/posts?${params}`);
+  },
+
+  async getUserReplies(
+    id: string,
+    limit = 25,
+    cursor?: string
+  ): Promise<PaginatedResponse<ReplyWithAuthor>> {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      ...(cursor && { cursor }),
+    });
+    return apiRequest(`/api/v1/users/${encodeURIComponent(id)}/replies?${params}`);
   },
 };
